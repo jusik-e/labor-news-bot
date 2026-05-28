@@ -23,10 +23,10 @@ type Message = {
 };
 
 const CATEGORIES = [
-  { key: "union" as const, label: "노조", icon: "👥", borderColor: "border-blue-200", headerBg: "bg-blue-50 text-blue-800", summaryBg: "bg-blue-50/50" },
-  { key: "employer" as const, label: "사용자", icon: "🏭", borderColor: "border-green-200", headerBg: "bg-green-50 text-green-800", summaryBg: "bg-green-50/50" },
-  { key: "government" as const, label: "정부", icon: "🏛️", borderColor: "border-amber-200", headerBg: "bg-amber-50 text-amber-800", summaryBg: "bg-amber-50/50" },
-  { key: "court" as const, label: "법원", icon: "⚖️", borderColor: "border-red-200", headerBg: "bg-red-50 text-red-800", summaryBg: "bg-red-50/50" },
+  { key: "union" as const, label: "노조", icon: "👥", borderColor: "border-blue-200", headerBg: "bg-blue-50 text-blue-800", summaryBg: "bg-blue-50" },
+  { key: "employer" as const, label: "사용자", icon: "🏭", borderColor: "border-green-200", headerBg: "bg-green-50 text-green-800", summaryBg: "bg-green-50" },
+  { key: "government" as const, label: "정부", icon: "🏛️", borderColor: "border-amber-200", headerBg: "bg-amber-50 text-amber-800", summaryBg: "bg-amber-50" },
+  { key: "court" as const, label: "법원", icon: "⚖️", borderColor: "border-red-200", headerBg: "bg-red-50 text-red-800", summaryBg: "bg-red-50" },
 ];
 
 const QUICK_BUTTONS = [
@@ -36,66 +36,64 @@ const QUICK_BUTTONS = [
   { label: "⚖️ 법원 판결", query: "최근 노동 관련 법원 판결 뉴스 알려줘" },
 ];
 
+function cleanText(text: string): string {
+  return text
+    .replace(/<cite[^>]*>/g, "")
+    .replace(/<\/cite>/g, "")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
 function parseResponse(raw: string): ParsedResponse | undefined {
   try {
     const clean = raw.replace(/```json|```/g, "").trim();
-    return JSON.parse(clean);
+    const parsed = JSON.parse(clean);
+    if (parsed.type === "news_brief") {
+      const keys = ["union", "employer", "government", "court"] as const;
+      keys.forEach((k) => {
+        if (Array.isArray(parsed[k])) {
+          parsed[k] = parsed[k].map((item: NewsItem) => ({
+            ...item,
+            title: cleanText(item.title ?? ""),
+            summary: cleanText(item.summary ?? ""),
+          }));
+        }
+      });
+    }
+    return parsed;
   } catch {
     return undefined;
   }
 }
 
 function NewsCard({ item, summaryBg }: { item: NewsItem; summaryBg: string }) {
-  const [open, setOpen] = useState(false);
-
   return (
-    <div className="border-b border-gray-100 last:border-0">
-      <div
-        className="px-3 py-2.5 flex gap-2 cursor-pointer hover:bg-gray-50 transition-colors"
-        onClick={() => setOpen(!open)}
-      >
-        <span className="text-gray-300 mt-0.5 flex-shrink-0">·</span>
-        <div className="flex-1 min-w-0">
-          <div className="flex items-start justify-between gap-2">
-            <p className="text-sm text-gray-800 leading-snug font-medium">{item.title}</p>
-            <span className="text-gray-400 text-xs mt-0.5 flex-shrink-0">{open ? "▲" : "▼"}</span>
-          </div>
-          {item.source && !open && (
-            <p className="text-xs text-gray-400 mt-0.5">{item.source}</p>
-          )}
-        </div>
-      </div>
-
-      {open && (
-        <div className={`mx-3 mb-2.5 rounded-lg p-3 ${summaryBg} border border-gray-100`}>
-          {item.summary && (
-            <p className="text-xs text-gray-700 leading-relaxed mb-2">{item.summary}</p>
-          )}
-          <div className="flex items-center justify-between">
-            {item.source && (
-              <span className="text-xs text-gray-400">{item.source}</span>
-            )}
-            {item.url ? (
-              <a
-                href={item.url}
-                target="_blank"
-                rel="noopener noreferrer"
-                onClick={(e) => e.stopPropagation()}
-                className="inline-flex items-center gap-1 text-xs text-blue-600 hover:text-blue-800 hover:underline font-medium ml-auto"
-              >
-                원문 보기
-                <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-                  <path d="M18 13v6a2 2 0 01-2 2H5a2 2 0 01-2-2V8a2 2 0 012-2h6"/>
-                  <polyline points="15 3 21 3 21 9"/>
-                  <line x1="10" y1="14" x2="21" y2="3"/>
-                </svg>
-              </a>
-            ) : (
-              <span className="text-xs text-gray-300 ml-auto">링크 없음</span>
-            )}
-          </div>
-        </div>
+    <div className={`px-3 py-3 border-b border-gray-100 last:border-0 ${summaryBg}`}>
+      {item.summary && (
+        <p className="text-sm text-gray-700 leading-relaxed mb-2">{item.summary}</p>
       )}
+      <div className="flex items-center justify-between">
+        {item.source && (
+          <span className="text-xs text-gray-400">{item.source}</span>
+        )}
+        {item.url ? (
+          <a
+            href={item.url}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="inline-flex items-center gap-1 text-xs text-blue-600 hover:text-blue-800 hover:underline font-medium ml-auto"
+          >
+            원문 보기
+            <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M18 13v6a2 2 0 01-2 2H5a2 2 0 01-2-2V8a2 2 0 012-2h6"/>
+              <polyline points="15 3 21 3 21 9"/>
+              <line x1="10" y1="14" x2="21" y2="3"/>
+            </svg>
+          </a>
+        ) : (
+          <span className="text-xs text-gray-300 ml-auto">링크 없음</span>
+        )}
+      </div>
     </div>
   );
 }
@@ -111,9 +109,9 @@ function NewsBriefCard({ data }: { data: NewsBrief }) {
             <div className={`flex items-center gap-2 px-3 py-2 text-sm font-medium ${cat.headerBg}`}>
               <span>{cat.icon}</span>
               <span>{cat.label}</span>
-              <span className="ml-auto text-xs opacity-60">{items.length}건 · 클릭하면 요약 보기</span>
+              <span className="ml-auto text-xs opacity-60">{items.length}건</span>
             </div>
-            <div className="bg-white divide-y divide-gray-50">
+            <div className="bg-white divide-y divide-gray-100">
               {items.map((item, i) => (
                 <NewsCard key={i} item={item} summaryBg={cat.summaryBg} />
               ))}
@@ -165,8 +163,8 @@ export default function Home() {
     {
       id: "welcome",
       role: "assistant",
-      raw: "안녕하세요! 노동뉴스 비서입니다.\n오늘의 주요 노동뉴스를 노조 · 사용자 · 정부 · 법원 4개 카테고리로 정리해 드립니다.\n\n각 뉴스를 클릭하면 요약과 원문 링크를 확인할 수 있습니다.",
-      parsed: { type: "text", content: "안녕하세요! 노동뉴스 비서입니다.\n오늘의 주요 노동뉴스를 노조 · 사용자 · 정부 · 법원 4개 카테고리로 정리해 드립니다.\n\n각 뉴스를 클릭하면 요약과 원문 링크를 확인할 수 있습니다." },
+      raw: "안녕하세요! 노동뉴스 비서입니다.\n오늘의 주요 노동뉴스를 노조 · 사용자 · 정부 · 법원 4개 카테고리로 정리해 드립니다.\n\n각 뉴스에는 요약과 원문 링크가 바로 표시됩니다.",
+      parsed: { type: "text", content: "안녕하세요! 노동뉴스 비서입니다.\n오늘의 주요 노동뉴스를 노조 · 사용자 · 정부 · 법원 4개 카테고리로 정리해 드립니다.\n\n각 뉴스에는 요약과 원문 링크가 바로 표시됩니다." },
     },
   ]);
   const [input, setInput] = useState("");
@@ -228,7 +226,7 @@ export default function Home() {
           <div className="w-10 h-10 rounded-full bg-blue-100 flex items-center justify-center text-xl flex-shrink-0">📰</div>
           <div>
             <h1 className="text-base font-semibold text-gray-900">노동뉴스 비서</h1>
-            <p className="text-xs text-gray-500 mt-0.5">노조 · 사용자 · 정부 · 법원 — 클릭하면 요약 및 원문 링크 확인</p>
+            <p className="text-xs text-gray-500 mt-0.5">노조 · 사용자 · 정부 · 법원 — 요약 및 원문 링크 제공</p>
           </div>
           <div className="ml-auto flex items-center gap-1.5 text-xs text-gray-400">
             <span className="w-2 h-2 rounded-full bg-green-400 inline-block" />
